@@ -8,7 +8,7 @@
     body { font-family: Arial, sans-serif; padding: 20px; }
     label, input, select, textarea { display: block; margin-top: 10px; }
     textarea { width: 100%; height: 60px; }
-    #grid, #solutionGrid { white-space: pre; font-family: monospace; margin-top: 20px; border: 0; }
+    #grid, #solutionGrid { white-space: pre; font-family: monospace; margin-top: 20px; border: 1px solid black; }
     .button { margin-top: 10px; }
     #solutionGrid { color: green; }
   </style>
@@ -122,7 +122,7 @@
       const el = document.getElementById(elementId);
       el.style.fontFamily = font;
       el.style.fontSize = size + 'px';
-      el.textContent = grid.map(row => row.join(' ')).join('\n');
+      el.textContent = grid.map(row => row.join(' ')).join('\\n');
     }
 
     function generatePuzzle() {
@@ -172,15 +172,14 @@
       const gridData = showSolution ? solution : puzzle;
       const spacing = size + 4;
 
-      let svgContent = `<?xml version="1.0" standalone="no"?><svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000">
-        <style> text { font-family: '${font}'; font-size: ${size}px; } </style>`;
+      let svgContent = `<?xml version=\"1.0\" standalone=\"no\"?><svg xmlns=\"http://www.w3.org/2000/svg\" width=\"1000\" height=\"1000\">\n        <style> text { font-family: '${font}'; font-size: ${size}px; } </style>`;
       for (let r = 0; r < gridData.length; r++) {
         for (let c = 0; c < gridData.length; c++) {
-          svgContent += `<text x="${c * spacing + 10}" y="${r * spacing + 20}">${gridData[r][c]}</text>`;
+          svgContent += `<text x=\"${c * spacing + 10}\" y=\"${r * spacing + 20}\">${gridData[r][c]}</text>`;
         }
       }
       if (document.getElementById('showWordsBelow').checked) {
-        svgContent += `<text x="10" y="${(gridData.length + 1) * spacing}">Wörter: ${words.join(', ')}</text>`;
+        svgContent += `<text x=\"10\" y=\"${(gridData.length + 1) * spacing}\">Wörter: ${words.join(', ')}</text>`;
       }
       svgContent += '</svg>';
 
