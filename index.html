@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wortsuchrätsel Generator</title>
+  <style>
+    body { font-family: Arial, sans-serif; padding: 20px; }
+    label, input, select, textarea { display: block; margin-top: 10px; }
+    textarea { width: 100%; height: 60px; }
+    #grid { white-space: pre; font-family: monospace; margin-top: 20px; }
+    .button { margin-top: 10px; }
+  </style>
+</head>
+<body>
+  <h1>Wortsuchrätsel Generator</h1>
+
+  <label for="language">Sprache:</label>
+  <select id="language">
+    <option value="de">Deutsch</option>
+    <option value="en">Englisch</option>
+    <option value="fr">Französisch</option>
+  </select>
+
+  <label for="font">Schriftart:</label>
+  <select id="font">
+    <option value="Arial">Arial</option>
+    <option value="Courier New">Courier New</option>
+    <option value="Times New Roman">Times New Roman</option>
+  </select>
+
+  <label for="fontSize">Schriftgröße (px):</label>
+  <input type="number" id="fontSize" value="16" />
+
+  <label for="gridSize">Grid-Größe (z. B. 15 für 15x15):</label>
+  <input type="number" id="gridSize" value="15" />
+
+  <label for="words">Suchwörter (kommagetrennt):</label>
+  <textarea id="words">Haus,Baum,Wasser,Licht</textarea>
+
+  <input type="checkbox" id="reverseWords" /> <label for="reverseWords" style="display:inline">Wörter rückwärts erlauben</label><br>
+  <input type="checkbox" id="showWordsBelow" checked /> <label for="showWordsBelow" style="display:inline">Wörter unter dem Raster anzeigen</label>
+
+  <button class="button" onclick="generatePuzzle()">Rätsel generieren</button>
+  <button class="button" onclick="reshuffleGrid()">Füllwörter neu mischen</button>
+  <button class="button" onclick="exportAsPDF(false)">Als PDF exportieren</button>
+  <button class="button" onclick="exportAsPDF(true)">Lösung als PDF exportieren</button>
+  <button class="button" onclick="exportAsSVG(false)">Als SVG exportieren</button>
+  <button class="button" onclick="exportAsSVG(true)">Lösung als SVG exportieren</button>
+
+  <pre id="grid"></pre>
+  <div id="wordList"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script>
+    let puzzle = [], solution = [], words = [];
+
+    function generateEmptyGrid(size) {
+      return Array.from({ length: size }, () => Array(size).fill(''));
+    }
+
+    function placeWords(grid, wordList, reverse) {
+      const size = grid.length;
+      let placed = [];
+
+      function tryPlace(word) {
+        const directions = [
+          [1, 0], [0, 1], [1, 1], [-1, 1], [1, -1], [-1, 0], [0, -1], [-1, -1]
+        ];
+
+        if (reverse && Math.random() > 0.5) word = word.split('').reverse().join('');
+
+        for (let attempt = 0; attempt < 100; attempt++) {
+          const dir = directions[Math.floor(Math.random() * directions.length)];
+          const row = Math.floor(Math.random() * size);
+          const col = Math.floor(Math.random() * size);
+
+          let r = row, c = col, fit = true;
+          for (let ch of word) {
+            if (r < 0 || r >= size || c < 0 || c >= size || (grid[r][c] && grid[r][c] !== ch)) {
+              fit = false;
+              break;
+            }
+            r += dir[0]; c += dir[1];
+          }
+          if (!fit) continue;
+
+          r = row; c = col;
+          for (let ch of word) {
+            grid[r][c] = ch;
+            r += dir[0]; c += dir[1];
+          }
+          return true;
+        }
+        return false;
+      }
+
+      for (let word of wordList) {
+        if (tryPlace(word.toUpperCase())) placed.push(word);
+      }
+      return placed;
+    }
+
+    function fillEmpty(grid) {
+      const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+      for (let r = 0; r < grid.length; r++) {
+        for (let c = 0; c < grid.length; c++) {
+          if (!grid[r][c]) grid[r][c] = letters[Math.floor(Math.random() * letters.length)];
+        }
+      }
+    }
+
+    function renderGrid(grid) {
+      const font = document.getElementById('font').value;
+      const size = document.getElementById('fontSize').value;
+      document.getElementById('grid').style.fontFamily = font;
+      document.getElementById('grid').style.fontSize = size + 'px';
+      return grid.map(row => row.join(' ')).join('\n');
+    }
+
+    function generatePuzzle() {
+      const size = parseInt(document.getElementById('gridSize').value);
+      words = document.getElementById('words').value.split(',').map(w => w.trim()).filter(Boolean);
+      const reverse = document.getElementById('reverseWords').checked;
+
+      puzzle = generateEmptyGrid(size);
+      solution = generateEmptyGrid(size);
+      const placed = placeWords(puzzle, words, reverse);
+      solution = JSON.parse(JSON.stringify(puzzle));
+      fillEmpty(puzzle);
+
+      document.getElementById('grid').textContent = renderGrid(puzzle);
+
+      const showWords = document.getElementById('showWordsBelow').checked;
+      document.getElementById('wordList').textContent = showWords ? 'Gesuchte Wörter: ' + placed.join(', ') : '';
+    }
+
+    function reshuffleGrid() {
+      if (!puzzle.length) return;
+      for (let r = 0; r < puzzle.length; r++) {
+        for (let c = 0; c < puzzle.length; c++) {
+          if (!solution[r][c]) puzzle[r][c] = String.fromCharCode(65 + Math.floor(Math.random() * 26));
+        }
+      }
+      document.getElementById('grid').textContent = renderGrid(puzzle);
+    }
+
+    async function exportAsPDF(showSolution = false) {
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      const gridData = showSolution ? solution : puzzle;
+      let lines = renderGrid(gridData).split('\n');
+      doc.setFontSize(10);
+      lines.forEach((line, i) => doc.text(line, 10, 10 + i * 6));
+      if (document.getElementById('showWordsBelow').checked) {
+        doc.text('Wörter: ' + words.join(', '), 10, 10 + lines.length * 6 + 10);
+      }
+      doc.save(showSolution ? 'loesung.pdf' : 'raetsel.pdf');
+    }
+
+    function exportAsSVG(showSolution = false) {
+      const font = document.getElementById('font').value;
+      const size = parseInt(document.getElementById('fontSize').value);
+      const gridData = showSolution ? solution : puzzle;
+      const spacing = size + 4;
+
+      let svgContent = `<?xml version="1.0" standalone="no"?><svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000">
+        <style> text { font-family: '${font}'; font-size: ${size}px; } </style>`;
+      for (let r = 0; r < gridData.length; r++) {
+        for (let c = 0; c < gridData.length; c++) {
+          svgContent += `<text x="${c * spacing + 10}" y="${r * spacing + 20}">${gridData[r][c]}</text>`;
+        }
+      }
+      if (document.getElementById('showWordsBelow').checked) {
+        svgContent += `<text x="10" y="${(gridData.length + 1) * spacing}">Wörter: ${words.join(', ')}</text>`;
+      }
+      svgContent += '</svg>';
+
+      const blob = new Blob([svgContent], { type: 'image/svg+xml' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = showSolution ? 'loesung.svg' : 'raetsel.svg';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+  </script>
+</body>
+</html>
