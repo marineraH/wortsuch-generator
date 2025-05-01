@@ -4,63 +4,53 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Wortsuchrätsel Generator</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
     body { font-family: Arial, sans-serif; padding: 20px; }
     label, input, select, textarea { display: block; margin-top: 10px; }
     textarea { width: 100%; height: 60px; }
     #grid, #solutionGrid {
       display: grid;
-      grid-template-columns: repeat(15, 30px); /* 15 Spalten mit 30px Breite */
-      grid-template-rows: repeat(15, 30px); /* 15 Zeilen mit 30px Höhe */
-      gap: 0; /* Kein Abstand zwischen den Zellen */
+      gap: 0;
       margin-top: 20px;
+      margin-bottom: 24px;
     }
     .grid-cell {
       width: 30px;
       height: 30px;
-      text-align: center; /* Horizontale Zentrierung */
-      line-height: 30px; /* Vertikale Zentrierung */
-      border: 1px solid black; /* Standard schwarzer Rand um jede Zelle */
-      padding: 0; /* Kein Innenabstand in der Zelle */
+      text-align: center;
+      border: 1px solid black;
+      box-sizing: border-box;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
     .button { margin-top: 10px; }
-    #solutionGrid { color: green; font-weight: bold; }
-    
-    /* Abstände zwischen den Grids */
-    #grid, #solutionGrid {
-      margin-bottom: 24px; /* Abstand zwischen den Grids */
-    }
   </style>
 </head>
 <body>
   <h1>Wortsuchrätsel Generator</h1>
 
-  <label for="language">Sprache:</label>
-  <select id="language">
-    <option value="de">Deutsch</option>
-    <option value="en">Englisch</option>
-    <option value="fr">Französisch</option>
-  </select>
-
   <label for="font">Schriftart:</label>
   <select id="font">
     <option value="Arial">Arial</option>
-    <option value="Courier New">Courier New</option>
-    <option value="Times New Roman">Times New Roman</option>
+    <option value="Courier">Courier</option>
+    <option value="Times">Times</option>
   </select>
 
   <label for="fontSize">Schriftgröße (px):</label>
-  <input type="number" id="fontSize" value="16" />
+  <input type="number" id="fontSize" value="16" min="10" max="30" />
 
-  <label for="gridSize">Grid-Größe (z. B. 15 für 15x15):</label>
-  <input type="number" id="gridSize" value="15" />
+  <label for="gridSize">Grid-Größe (max 20):</label>
+  <input type="number" id="gridSize" value="15" min="1" max="20" />
 
   <label for="words">Suchwörter (kommagetrennt):</label>
   <textarea id="words">Haus,Baum,Wasser,Licht</textarea>
 
-  <input type="checkbox" id="reverseWords" /> <label for="reverseWords" style="display:inline">Wörter rückwärts erlauben</label><br>
-  <input type="checkbox" id="showWordsBelow" checked /> <label for="showWordsBelow" style="display:inline">Wörter unter dem Raster anzeigen</label><br>
-  <input type="checkbox" id="allowDiagonal" /> <label for="allowDiagonal" style="display:inline">Wörter zufällig diagonal platzieren</label><br>
+  <input type="checkbox" id="reverseWords" /> <label for="reverseWords">Wörter rückwärts erlauben</label><br>
+  <input type="checkbox" id="showWordsBelow" checked /> <label for="showWordsBelow">Wörter unter dem Raster anzeigen</label><br>
+  <input type="checkbox" id="allowDiagonal" /> <label for="allowDiagonal">Wörter diagonal platzieren</label><br>
 
   <label for="textColor">Schriftfarbe (Hex):</label>
   <input type="text" id="textColor" value="#000000" />
@@ -68,14 +58,15 @@
   <label for="borderColor">Rahmenfarbe (Hex):</label>
   <input type="text" id="borderColor" value="#000000" />
 
-  <label for="padding">Padding (px):</label>
-  <input type="number" id="padding" value="4" />
+  <label for="highlightColor">Hintergrundfarbe für Lösung (Hex):</label>
+  <input type="text" id="highlightColor" value="#ccffcc" />
 
   <button class="button" onclick="generatePuzzle()">Rätsel generieren</button>
   <button class="button" onclick="reshuffleGrid()">Füllwörter neu mischen</button>
-  <button class="button" onclick="exportAsPDF(false)">Als PDF exportieren</button>
+  <button class="button" onclick="resetAll()">Zurücksetzen</button>
+  <button class="button" onclick="exportAsPDF(false)">Rätsel als PDF exportieren</button>
   <button class="button" onclick="exportAsPDF(true)">Lösung als PDF exportieren</button>
-  <button class="button" onclick="exportAsSVG(false)">Als SVG exportieren</button>
+  <button class="button" onclick="exportAsSVG(false)">Rätsel als SVG exportieren</button>
   <button class="button" onclick="exportAsSVG(true)">Lösung als SVG exportieren</button>
 
   <h3>Rätsel-Vorschau:</h3>
@@ -84,197 +75,229 @@
   <div id="solutionGrid"></div>
   <div id="wordList"></div>
 
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <script>
-    let puzzle = [], solution = [], words = [];
-    let textColor = "#000000"; // Default Schriftfarbe
-    let borderColor = "#000000"; // Default Rahmenfarbe
-    let padding = 4; // Default Padding
+    const generateEmptyGrid = (n) => Array.from({ length: n }, () => Array(n).fill(''));
+    let puzzle = [], solution = [], words = [], solutionPositions = new Set();
 
-    // Funktionen zum Abrufen der Hex-Werte und Padding
-    function getTextColor() {
-      textColor = document.getElementById('textColor').value || "#000000";
+    function generatePuzzle() {
+      const gridSize = parseInt(document.getElementById('gridSize').value);
+      words = document.getElementById('words').value.split(',').map(w => w.trim()).filter(Boolean);
+      puzzle = generateEmptyGrid(gridSize);
+      solutionPositions.clear();
+
+      const reverse = document.getElementById('reverseWords').checked;
+      const allowDiagonal = document.getElementById('allowDiagonal').checked;
+
+      placeWords(puzzle, words, reverse, allowDiagonal);
+      fillEmpty(puzzle);
+      solution = JSON.parse(JSON.stringify(puzzle));
+
+      renderGrid(puzzle, 'grid', false);
+      renderGrid(solution, 'solutionGrid', true);
+
+      const showWords = document.getElementById('showWordsBelow').checked;
+      document.getElementById('wordList').innerHTML = showWords ? `<strong>Gesuchte Wörter:</strong> ${words.join(', ')}` : '';
     }
 
-    function getBorderColor() {
-      borderColor = document.getElementById('borderColor').value || "#000000";
-    }
+    function placeWords(grid, words, reverse, allowDiagonal) {
+      const directions = [[0, 1], [1, 0]];
+      if (allowDiagonal) directions.push([1, 1], [-1, 1]);
 
-    function getPadding() {
-      padding = parseInt(document.getElementById('padding').value) || 4; // Padding aus dem Eingabefeld
-    }
-
-    function generateEmptyGrid(size) {
-      return Array.from({ length: size }, () => Array(size).fill(''));
-    }
-
-    function placeWords(grid, wordList, reverse, allowDiagonal) {
-      const size = grid.length;
-      let placed = [];
-
-      function tryPlace(originalWord) {
-        const directions = [
-          [1, 0], [0, 1], [1, 1], [-1, 1], [1, -1], [-1, 0], [0, -1], [-1, -1]
-        ];
-
-        let word = originalWord; // Standardmäßig nicht rückwärts
-        if (reverse && Math.random() > 0.5) {
-          word = word.split('').reverse().join(''); // Nur zufällig rückwärts
-        }
-
-        if (allowDiagonal) {
-          directions.push([1, 1], [-1, -1], [1, -1], [-1, 1]); // Diagonale Richtungen hinzufügen
-        }
-
+      words.forEach(word => {
+        const tryWord = reverse && Math.random() > 0.5 ? word.split('').reverse().join('') : word;
         for (let attempt = 0; attempt < 100; attempt++) {
           const dir = directions[Math.floor(Math.random() * directions.length)];
-          const row = Math.floor(Math.random() * size);
-          const col = Math.floor(Math.random() * size);
+          const row = Math.floor(Math.random() * grid.length);
+          const col = Math.floor(Math.random() * grid.length);
 
-          let r = row, c = col, fit = true;
-          for (let ch of word) {
-            if (r < 0 || r >= size || c < 0 || c >= size || (grid[r][c] && grid[r][c] !== ch)) {
-              fit = false;
+          let fits = true, positions = [];
+          for (let i = 0; i < tryWord.length; i++) {
+            const r = row + i * dir[0];
+            const c = col + i * dir[1];
+            if (r < 0 || r >= grid.length || c < 0 || c >= grid.length || (grid[r][c] && grid[r][c] !== tryWord[i])) {
+              fits = false;
               break;
             }
-            r += dir[0]; c += dir[1];
+            positions.push(`${r},${c}`);
           }
-          if (!fit) continue;
 
-          r = row; c = col;
-          for (let ch of word) {
-            grid[r][c] = ch;
-            r += dir[0]; c += dir[1];
+          if (fits) {
+            for (let i = 0; i < tryWord.length; i++) {
+              const r = row + i * dir[0];
+              const c = col + i * dir[1];
+              grid[r][c] = tryWord[i];
+              solutionPositions.add(`${r},${c}`);
+            }
+            break;
           }
-          return true;
         }
-        return false;
-      }
-
-      for (let word of wordList) {
-        if (tryPlace(word)) placed.push(word);
-      }
-      return placed;
+      });
     }
 
     function fillEmpty(grid) {
       const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
       for (let r = 0; r < grid.length; r++) {
-        for (let c = 0; c < grid.length; c++) {
-          if (!grid[r][c]) grid[r][c] = letters[Math.floor(Math.random() * letters.length)];
+        for (let c = 0; c < grid[r].length; c++) {
+          if (!grid[r][c]) {
+            grid[r][c] = letters.charAt(Math.floor(Math.random() * letters.length));
+          }
         }
       }
     }
 
-    function renderGrid(grid, elementId) {
-      getTextColor();
-      getBorderColor();
-      getPadding();
+    function renderGrid(grid, containerId, isSolution) {
+      const container = document.getElementById(containerId);
+      container.innerHTML = '';
+      const fontSize = parseInt(document.getElementById('fontSize').value);
+      const textColor = document.getElementById('textColor').value;
+      const borderColor = document.getElementById('borderColor').value;
+      const highlightColor = document.getElementById('highlightColor').value || '#ccffcc';
+      const gridSize = grid.length;
 
-      const el = document.getElementById(elementId);
-      el.innerHTML = ''; // Clear the grid before rendering
-      grid.forEach(row => {
-        row.forEach(cell => {
-          const cellDiv = document.createElement('div');
-          cellDiv.classList.add('grid-cell');
-          cellDiv.textContent = cell;
-          cellDiv.style.color = textColor; // Dynamische Schriftfarbe
-          cellDiv.style.borderColor = borderColor; // Dynamische Rahmenfarbe
-          cellDiv.style.padding = `${padding}px`; // Dynamisches Padding
-          el.appendChild(cellDiv);
-        });
-      });
-    }
+      container.style.gridTemplateColumns = `repeat(${gridSize}, 30px)`;
+      container.style.gridTemplateRows = `repeat(${gridSize}, 30px)`;
 
-    function generatePuzzle() {
-      getTextColor();
-      getBorderColor();
-      getPadding();
-      
-      const size = parseInt(document.getElementById('gridSize').value);
-      words = document.getElementById('words').value.split(',').map(w => w.trim()).filter(Boolean);
-      const reverse = document.getElementById('reverseWords').checked;
-      const allowDiagonal = document.getElementById('allowDiagonal').checked;
-
-      puzzle = generateEmptyGrid(size);
-      solution = generateEmptyGrid(size);
-      const placed = placeWords(puzzle, words, reverse, allowDiagonal);
-      solution = JSON.parse(JSON.stringify(puzzle));
-      fillEmpty(puzzle);
-
-      renderGrid(puzzle, 'grid');
-      renderGrid(solution, 'solutionGrid');
-
-      const showWords = document.getElementById('showWordsBelow').checked;
-      document.getElementById('wordList').textContent = showWords ? 'Gesuchte Wörter: ' + placed.join(', ') : '';
+      for (let r = 0; r < gridSize; r++) {
+        for (let c = 0; c < gridSize; c++) {
+          const cell = document.createElement('div');
+          cell.className = 'grid-cell';
+          cell.textContent = grid[r][c];
+          cell.style.fontSize = fontSize + 'px';
+          cell.style.color = textColor;
+          cell.style.borderColor = borderColor;
+          if (isSolution && solutionPositions.has(`${r},${c}`)) {
+            cell.style.backgroundColor = highlightColor;
+            cell.style.fontWeight = 'bold';
+          }
+          container.appendChild(cell);
+        }
+      }
     }
 
     function reshuffleGrid() {
       if (!puzzle.length) return;
-      for (let r = 0; r < puzzle.length; r++) {
-        for (let c = 0; c < puzzle.length; c++) {
-          if (!solution[r][c]) puzzle[r][c] = String.fromCharCode(65 + Math.floor(Math.random() * 26));
-        }
-      }
-      renderGrid(puzzle, 'grid');
+      fillEmpty(puzzle);
+      renderGrid(puzzle, 'grid', false);
     }
 
-    async function exportAsPDF(showSolution = false) {
+    function resetAll() {
+      document.getElementById('font').value = 'Arial';
+      document.getElementById('fontSize').value = 16;
+      document.getElementById('gridSize').value = 15;
+      document.getElementById('words').value = '';
+      document.getElementById('reverseWords').checked = false;
+      document.getElementById('showWordsBelow').checked = true;
+      document.getElementById('allowDiagonal').checked = false;
+      document.getElementById('textColor').value = '#000000';
+      document.getElementById('borderColor').value = '#000000';
+      document.getElementById('highlightColor').value = '#ccffcc';
+      document.getElementById('grid').innerHTML = '';
+      document.getElementById('solutionGrid').innerHTML = '';
+      document.getElementById('wordList').innerHTML = '';
+      solutionPositions.clear();
+    }
+
+    async function exportAsPDF(showSolution) {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
-      const gridData = showSolution ? solution : puzzle;
-      const size = gridData.length;
-      const cellSize = 5; // Zellengröße in PDF
-      const startX = 10, startY = 10;
-      doc.setFontSize(parseInt(document.getElementById('fontSize').value));
-      doc.setFont(document.getElementById('font').value);
+      const grid = showSolution ? solution : puzzle;
+      const gridSize = grid.length;
+      const cellSize = 8;
+      const textColor = document.getElementById('textColor').value;
+      const borderColor = document.getElementById('borderColor').value;
+      const highlightColor = document.getElementById('highlightColor').value;
+      const fontSize = parseInt(document.getElementById('fontSize').value);
+      const font = document.getElementById('font').value;
 
-      // Zeichne das Grid mit Border und Innenabständen
-      for (let r = 0; r < size; r++) {
-        for (let c = 0; c < size; c++) {
-          const x = startX + c * cellSize;
-          const y = startY + r * cellSize;
-          doc.rect(x, y, cellSize, cellSize); // Zeichne die Zellenränder
-          doc.text(gridData[r][c] || '', x + 1, y + 3); // Text in die Zelle einfügen
+      doc.setFont(font);
+      doc.setFontSize(fontSize);
+
+      for (let r = 0; r < gridSize; r++) {
+        for (let c = 0; c < gridSize; c++) {
+          const x = 10 + c * cellSize;
+          const y = 10 + r * cellSize;
+
+          if (showSolution && solutionPositions.has(`${r},${c}`)) {
+            doc.setFillColor(highlightColor);
+            doc.rect(x, y, cellSize, cellSize, 'F');
+          }
+
+          doc.setDrawColor(borderColor);
+          doc.rect(x, y, cellSize, cellSize);
+          doc.setTextColor(textColor);
+          doc.text(grid[r][c], x + 2.5, y + 5);
         }
       }
 
-      if (document.getElementById('showWordsBelow').checked) {
-        doc.text('Wörter: ' + words.join(', '), 10, startY + size * cellSize + 10);
+      const showWords = document.getElementById('showWordsBelow').checked;
+      if (showWords) {
+        doc.setFontSize(10);
+        doc.setTextColor('#000000');
+        doc.text('Gesuchte Wörter:', 10, gridSize * cellSize + 20);
+        let currentY = gridSize * cellSize + 28;
+        let wordLine = '';
+        words.forEach((word, index) => {
+          wordLine += word + (index < words.length - 1 ? ', ' : '');
+          if (wordLine.length > 70 || index === words.length - 1) {
+            doc.text(wordLine, 10, currentY);
+            currentY += 8;
+            wordLine = '';
+          }
+        });
       }
 
-      doc.save(showSolution ? 'loesung.pdf' : 'raetsel.pdf');
+      doc.save(showSolution ? 'woerterloesung.pdf' : 'woerterraster.pdf');
     }
 
-    function exportAsSVG(showSolution = false) {
+    function exportAsSVG(showSolution) {
+      const grid = showSolution ? solution : puzzle;
+      const gridSize = grid.length;
+      const cellSize = 30;
+      const textColor = document.getElementById('textColor').value;
+      const borderColor = document.getElementById('borderColor').value;
+      const highlightColor = document.getElementById('highlightColor').value;
+      const fontSize = document.getElementById('fontSize').value;
       const font = document.getElementById('font').value;
-      const size = parseInt(document.getElementById('fontSize').value);
-      const gridData = showSolution ? solution : puzzle;
-      const spacing = size + 4;
-      const cellSize = 30; // Zellengröße
-      let svgContent = `<?xml version="1.0" standalone="no"?><svg xmlns="http://www.w3.org/2000/svg" width="1000" height="1000">
-        <style> text { font-family: '${font}'; font-size: ${size}px; fill: ${textColor}; } </style>`;
 
-      for (let r = 0; r < gridData.length; r++) {
-        for (let c = 0; c < gridData.length; c++) {
-          svgContent += `<rect x="${c * cellSize}" y="${r * cellSize}" width="${cellSize}" height="${cellSize}" stroke="${borderColor}" fill="none" />`;
-          svgContent += `<text x="${c * cellSize + 10}" y="${r * cellSize + 20}">${gridData[r][c]}</text>`;
+      let svg = `<svg xmlns='http://www.w3.org/2000/svg' width='${gridSize * cellSize + 20}' height='${gridSize * cellSize + 100}'>`;
+
+      for (let r = 0; r < gridSize; r++) {
+        for (let c = 0; c < gridSize; c++) {
+          const x = c * cellSize;
+          const y = r * cellSize;
+
+          if (showSolution && solutionPositions.has(`${r},${c}`)) {
+            svg += `<rect x='${x}' y='${y}' width='${cellSize}' height='${cellSize}' fill='${highlightColor}'/>`;
+          }
+
+          svg += `<rect x='${x}' y='${y}' width='${cellSize}' height='${cellSize}' fill='none' stroke='${borderColor}'/>`;
+          svg += `<text x='${x + 15}' y='${y + 20}' font-size='${fontSize}' font-family='${font}' fill='${textColor}' text-anchor='middle'>${grid[r][c]}</text>`;
         }
       }
 
-      if (document.getElementById('showWordsBelow').checked) {
-        svgContent += `<text x="10" y="${(gridData.length + 1) * cellSize}">Wörter: ${words.join(', ')}</text>`;
+      const showWords = document.getElementById('showWordsBelow').checked;
+      if (showWords) {
+        svg += `<text x='10' y='${gridSize * cellSize + 30}' font-size='12' fill='#000000' font-family='${font}'>Gesuchte Wörter:</text>`;
+        let wordLine = '';
+        let currentY = gridSize * cellSize + 45;
+        words.forEach((word, index) => {
+          wordLine += word + (index < words.length - 1 ? ', ' : '');
+          if (wordLine.length > 70 || index === words.length - 1) {
+            svg += `<text x='10' y='${currentY}' font-size='12' fill='#000000' font-family='${font}'>${wordLine}</text>`;
+            currentY += 16;
+            wordLine = '';
+          }
+        });
       }
 
-      svgContent += '</svg>';
-
-      const blob = new Blob([svgContent], { type: 'image/svg+xml' });
-      const link = document.createElement('a');
-      link.href = URL.createObjectURL(blob);
-      link.download = showSolution ? 'loesung.svg' : 'raetsel.svg';
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      svg += '</svg>';
+      const blob = new Blob([svg], { type: 'image/svg+xml' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = showSolution ? 'woerterloesung.svg' : 'woerterraster.svg';
+      a.click();
+      URL.revokeObjectURL(url);
     }
   </script>
 </body>
