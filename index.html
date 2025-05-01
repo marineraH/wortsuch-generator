@@ -8,8 +8,9 @@
     body { font-family: Arial, sans-serif; padding: 20px; }
     label, input, select, textarea { display: block; margin-top: 10px; }
     textarea { width: 100%; height: 60px; }
-    #grid { white-space: pre; font-family: monospace; margin-top: 20px; }
+    #grid, #solutionGrid { white-space: pre; font-family: monospace; margin-top: 20px; }
     .button { margin-top: 10px; }
+    #solutionGrid { color: green; }
   </style>
 </head>
 <body>
@@ -48,7 +49,10 @@
   <button class="button" onclick="exportAsSVG(false)">Als SVG exportieren</button>
   <button class="button" onclick="exportAsSVG(true)">Lösung als SVG exportieren</button>
 
+  <h3>Rätsel-Vorschau:</h3>
   <pre id="grid"></pre>
+  <h3>Lösungsvorschau:</h3>
+  <pre id="solutionGrid"></pre>
   <div id="wordList"></div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -63,12 +67,14 @@
       const size = grid.length;
       let placed = [];
 
-      function tryPlace(word) {
+      function tryPlace(originalWord) {
         const directions = [
           [1, 0], [0, 1], [1, 1], [-1, 1], [1, -1], [-1, 0], [0, -1], [-1, -1]
         ];
 
-        if (reverse && Math.random() > 0.5) word = word.split('').reverse().join('');
+        let word = reverse && Math.random() > 0.5
+          ? originalWord.split('').reverse().join('')
+          : originalWord;
 
         for (let attempt = 0; attempt < 100; attempt++) {
           const dir = directions[Math.floor(Math.random() * directions.length)];
@@ -96,7 +102,7 @@
       }
 
       for (let word of wordList) {
-        if (tryPlace(word.toUpperCase())) placed.push(word);
+        if (tryPlace(word)) placed.push(word);
       }
       return placed;
     }
@@ -110,12 +116,13 @@
       }
     }
 
-    function renderGrid(grid) {
+    function renderGrid(grid, elementId) {
       const font = document.getElementById('font').value;
       const size = document.getElementById('fontSize').value;
-      document.getElementById('grid').style.fontFamily = font;
-      document.getElementById('grid').style.fontSize = size + 'px';
-      return grid.map(row => row.join(' ')).join('\n');
+      const el = document.getElementById(elementId);
+      el.style.fontFamily = font;
+      el.style.fontSize = size + 'px';
+      el.textContent = grid.map(row => row.join(' ')).join('\n');
     }
 
     function generatePuzzle() {
@@ -129,7 +136,8 @@
       solution = JSON.parse(JSON.stringify(puzzle));
       fillEmpty(puzzle);
 
-      document.getElementById('grid').textContent = renderGrid(puzzle);
+      renderGrid(puzzle, 'grid');
+      renderGrid(solution, 'solutionGrid');
 
       const showWords = document.getElementById('showWordsBelow').checked;
       document.getElementById('wordList').textContent = showWords ? 'Gesuchte Wörter: ' + placed.join(', ') : '';
@@ -142,14 +150,14 @@
           if (!solution[r][c]) puzzle[r][c] = String.fromCharCode(65 + Math.floor(Math.random() * 26));
         }
       }
-      document.getElementById('grid').textContent = renderGrid(puzzle);
+      renderGrid(puzzle, 'grid');
     }
 
     async function exportAsPDF(showSolution = false) {
       const { jsPDF } = window.jspdf;
       const doc = new jsPDF();
       const gridData = showSolution ? solution : puzzle;
-      let lines = renderGrid(gridData).split('\n');
+      let lines = gridData.map(row => row.join(' '));
       doc.setFontSize(10);
       lines.forEach((line, i) => doc.text(line, 10, 10 + i * 6));
       if (document.getElementById('showWordsBelow').checked) {
@@ -187,3 +195,4 @@
   </script>
 </body>
 </html>
+
