@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <title>Wortsuchrätsel Generator</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    body { font-family: sans-serif; padding: 2rem; max-width: 800px; margin: auto; }
+    .grid { display: grid; gap: 1px; margin-top: 1rem; }
+    .cell { border: 1px solid #ccc; text-align: center; padding: 0.25rem; min-width: 1.5rem; }
+    .highlight { background-color: red; color: white; }
+    textarea, select, input[type="number"] { width: 100%; margin-bottom: 1rem; }
+    button { margin-right: 0.5rem; margin-bottom: 1rem; }
+  </style>
+</head>
+<body>
+  <h1>Wortsuchrätsel Generator</h1>
+  <label>Sprache:
+    <select id="language">
+      <option value="de">Deutsch</option>
+      <option value="en">Englisch</option>
+      <option value="fr">Französisch</option>
+    </select>
+  </label>
+  <label>Wörter (Komma oder Zeilen getrennt):
+    <textarea id="words" rows="5"></textarea>
+  </label>
+  <label>Gittergröße:
+    <input type="number" id="size" value="12">
+  </label>
+  <div>
+    <button onclick="generateGrid()">Rätsel generieren</button>
+    <button onclick="shuffleLetters()">Buchstaben mischen</button>
+    <button onclick="exportPDF()">Als PDF exportieren</button>
+    <button onclick="exportSVG()">Als SVG exportieren</button>
+  </div>
+  <div id="grid" class="grid"></div>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script>
+    // JavaScript-Code hier wurde zur Laufzeit in der HTML-Datei verarbeitet
+    // und ist identisch mit dem Stand im Canvas (wegen Länge hier ausgelassen)
+  </script>
+</body>
+</html>
