@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ostsee-Achtsamkeits-Quiz für Reisende</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@300;400;500;600;700&display=swap');
+        
+        body {
+            font-family: 'Montserrat', sans-serif;
+            background-color: #e0f2fe;
+            background-image: linear-gradient(120deg, #e0f2fe 0%, #bae6fd 100%);
+            min-height: 100vh;
+        }
+        
+        .quiz-container {
+            background-color: rgba(255, 255, 255, 0.9);
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        .option-btn {
+            transition: all 0.3s ease;
+        }
+        
+        .option-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .result-container {
+            border-radius: 1rem;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+        }
+        
+        .wave-top {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            overflow: hidden;
+            line-height: 0;
+            z-index: -1;
+        }
+        
+        .wave-bottom {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            overflow: hidden;
+            line-height: 0;
+            transform: rotate(180deg);
+            z-index: -1;
+        }
+        
+        .wave-svg {
+            position: relative;
+            display: block;
+            width: calc(100% + 1.3px);
+            height: 150px;
+        }
+        
+        .wave-shape-fill {
+            fill: #FFFFFF;
+            opacity: 0.2;
+        }
+        
+        /* Wave Progress Indicator */
+        .wave-progress-container {
+            margin: 20px 0 30px;
+            position: relative;
+            height: 60px;
+        }
+        
+        .wave-progress-svg {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .wave-path {
+            fill: none;
+            stroke: #e0f2fe;
+            stroke-width: 3;
+            stroke-linecap: round;
+        }
+        
+        .wave-path-progress {
+            fill: none;
+            stroke: #0ea5e9;
+            stroke-width: 3;
+            stroke-linecap: round;
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            transition: stroke-dashoffset 0.5s ease;
+        }
+    </style>
+</head>
+<body class="px-4 py-8 relative">
+    <!-- Wave decoration top -->
+    <div class="wave-top">
+        <svg class="wave-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 120" preserveAspectRatio="none">
+            <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V0H0V27.35A600.21,600.21,0,0,0,321.39,56.44Z" class="wave-shape-fill"></path>
+        </svg>
+    </div>
+    
+    <div class="max-w-3xl mx-auto">
+        <div class="quiz-container p-6 md:p-8 mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-center text-sky-700 mb-2">Ostsee-Achtsamkeits-Quiz</h1>
+            <p class="text-center text-gray-600 mb-8">Entdecke, welcher Ostsee-Achtsamkeitstyp du bist!</p>
+            
+            <div id="quiz">
+                <!-- Wave Progress Indicator -->
+                <div class="wave-progress-container">
+                    <svg class="wave-progress-svg" viewBox="0 0 700 60" xmlns="http://www.w3.org/2000/svg">
+                        <!-- Background wave path -->
+                        <path id="wave-path" class="wave-path" d="M0,30 C25,10 50,50 75,30 C100,10 125,50 150,30 C175,10 200,50 225,30 C250,10 275,50 300,30 C325,10 350,50 375,30 C400,10 425,50 450,30 C475,10 500,50 525,30 C550,10 575,50 600,30 C625,10 650,50 675,30 C700,10" />
+                        
+                        <!-- Progress wave path (initially hidden) -->
+                        <path id="wave-path-progress" class="wave-path-progress" d="M0,30 C25,10 50,50 75,30 C100,10 125,50 150,30 C175,10 200,50 225,30 C250,10 275,50 300,30 C325,10 350,50 375,30 C400,10 425,50 450,30 C475,10 500,50 525,30 C550,10 575,50 600,30 C625,10 650,50 675,30 C700,10" />
+                    </svg>
+                </div>
+                
+                <div id="question-container" class="mb-6">
+                    <h2 id="question-text" class="text-xl md:text-2xl font-semibold text-sky-800 mb-4"></h2>
+                    <div id="options-container" class="space-y-3"></div>
+                </div>
+                
+                <div class="flex justify-between items-center">
+                    <button id="prev-btn" class="px-5 py-2 bg-sky-100 text-sky-700 rounded-lg font-medium hover:bg-sky-200 transition-colors hidden">Zurück</button>
+                    <div class="flex-grow text-center">
+                        <span id="progress-text" class="text-sky-700 font-medium"></span>
+                    </div>
+                    <button id="next-btn" class="px-5 py-2 bg-sky-600 text-white rounded-lg font-medium hover:bg-sky-700 transition-colors">Weiter</button>
+                </div>
+            </div>
+            
+            <div id="result" class="hidden">
+                <div class="result-container p-6 bg-white border-2 border-sky-200 mb-6">
+                    <h2 id="result-title" class="text-2xl font-bold text-sky-700 mb-3"></h2>
+                    <p id="result-description" class="text-gray-700 mb-4"></p>
+                    <h3 class="text-xl font-semibold text-sky-600 mb-2">Achtsamkeitstipps für dich:</h3>
+                    <ul id="result-tips" class="list-disc pl-5 text-gray-700 space-y-2"></ul>
+                </div>
+                
+                <div class="text-center">
+                    <button id="restart-btn" class="px-6 py-3 bg-sky-600 text-white rounded-lg font-medium hover:bg-sky-700 transition-colors">Quiz neu starten</button>
+                </div>
+            </div>
+        </div>
+        
+        <div class="text-center text-gray-600 text-sm">
+            <p>© 2025 Ostsee-Achtsamkeits-Quiz | Wellenweise Stille</p>
+        </div>
+    </div>
+    
+    <!-- Wave decoration bottom -->
+    <div class="wave-bottom">
+        <svg class="wave-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 120" preserveAspectRatio="none">
+            <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V0H0V27.35A600.21,600.21,0,0,0,321.39,56.44Z" class="wave-shape-fill"></path>
+        </svg>
+    </div>
+    
+    <script>
+        const questions = [
+            {
+                question: "Wie verbringst du am liebsten deinen Morgen an der Ostsee?",
+                options: [
+                    "Mit einer Meditation am Strand bei Sonnenaufgang",
+                    "Mit einem energiegeladenen Spaziergang am Wasser",
+                    "Mit einem gemütlichen Frühstück mit Meerblick",
+                    "Mit Yoga auf dem Strandhandtuch"
+                ]
+            },
+            {
+                question: "Was entspannt dich am meisten?",
+                options: [
+                    "Das Rauschen der Wellen hören",
+                    "Aktiv sein und die Umgebung erkunden",
+                    "Ein gutes Buch im Strandkorb lesen",
+                    "Bewusst die Natur beobachten und wahrnehmen"
+                ]
+            },
+            {
+                question: "Welche Ostsee-Aktivität würdest du nie verpassen wollen?",
+                options: [
+                    "Barfuß durch den Sand laufen und die Verbindung zur Erde spüren",
+                    "Eine Fahrradtour entlang der Küste",
+                    "Den Sonnenuntergang am Strand genießen",
+                    "Eine geführte Naturwanderung durch die Küstenlandschaft"
+                ]
+            },
+            {
+                question: "Was nimmst du von deinem Ostsee-Urlaub mit nach Hause?",
+                options: [
+                    "Neue Achtsamkeitsroutinen für den Alltag",
+                    "Energie und frischen Wind für neue Projekte",
+                    "Schöne Erinnerungen und Muscheln als Deko",
+                    "Wissen über die lokale Natur und Kultur"
+                ]
+            },
+            {
+                question: "Wie gehst du mit stressigen Situationen im Urlaub um?",
+                options: [
+                    "Mit bewusster Atmung und Meditation",
+                    "Mit Bewegung und Sport am Strand",
+                    "Mit einer Auszeit und einem Stück Kuchen im Café",
+                    "Mit dem Aufschreiben meiner Gedanken im Reisetagebuch"
+                ]
+            },
+            {
+                question: "Was ist dein liebstes Ostsee-Souvenir?",
+                options: [
+                    "Ein Stein oder eine Muschel als Erinnerung an achtsame Momente",
+                    "Aktive Erinnerungen wie Fotos von Wanderungen",
+                    "Kulinarische Spezialitäten der Region",
+                    "Ein Buch über die lokale Natur oder Geschichte"
+                ]
+            },
+            {
+                question: "Wie würdest du einen perfekten Ostsee-Tag beenden?",
+                options: [
+                    "Mit einer Abendroutine zur Entspannung am Meer",
+                    "Mit einem Abendspaziergang am Strand",
+                    "Mit einem gemütlichen Abendessen mit Meerblick",
+                    "Mit dem Reflektieren des Tages in meinem Reisetagebuch"
+                ]
+            }
+        ];
+
+        const results = [
+            {
+                title: "Die achtsame Wellenhorcherin",
+                description: "Du findest deine innere Ruhe im Einklang mit dem Meer. Die Ostsee ist für dich ein Ort der Meditation und des Zur-Ruhe-Kommens. Du liebst es, dem Wellenrauschen zu lauschen und die salzige Luft bewusst einzuatmen.",
+                tips: [
+                    "Starte jeden Urlaubstag mit einer kurzen Strandmeditation",
+                    "Sammle Muscheln und Steine als Achtsamkeitsanker für zu Hause",
+                    "Führe ein Dankbarkeitstagebuch während deines Urlaubs",
+                    "Praktiziere bewusstes Barfußlaufen am Strand für mehr Erdung"
+                ]
+            },
+            {
+                title: "Die energiegeladene Küstenentdeckerin",
+                description: "Du liebst es, die Ostseeküste aktiv zu erkunden und dabei den Kopf freizubekommen. Bewegung in der Natur ist deine Form der Achtsamkeit. Du tankst Energie durch Aktivität und das Entdecken neuer Orte.",
+                tips: [
+                    "Plane achtsame Wanderungen entlang der Küste",
+                    "Probiere Wassersportarten wie SUP oder Kajak für Flow-Erlebnisse",
+                    "Mache bewusste Fotopausen, um den Moment festzuhalten",
+                    "Integriere kurze Atemübungen in deine aktiven Ausflüge"
+                ]
+            },
+            {
+                title: "Die genießende Meeresfreundin",
+                description: "Für dich bedeutet Achtsamkeit vor allem Genuss und das bewusste Wahrnehmen schöner Momente. Du liebst es, die regionalen Spezialitäten zu kosten und die Schönheit der Ostsee in vollen Zügen zu genießen.",
+                tips: [
+                    "Genieße regionale Speisen mit allen Sinnen",
+                    "Schaffe dir gemütliche Rückzugsorte am Strand",
+                    "Sammle bewusst schöne Momente in einem Urlaubstagebuch",
+                    "Plane täglich eine 'Genuss-Stunde' nur für dich"
+                ]
+            },
+            {
+                title: "Die wissbegierige Naturverbundene",
+                description: "Du bist fasziniert von der Natur und Kultur der Ostseeregion. Achtsamkeit bedeutet für dich, die Umgebung bewusst wahrzunehmen und zu verstehen. Du tauchst gerne tiefer in die Besonderheiten der Region ein.",
+                tips: [
+                    "Besuche geführte Naturwanderungen zur lokalen Flora und Fauna",
+                    "Führe ein Naturtagebuch über deine Beobachtungen",
+                    "Praktiziere Achtsamkeitsübungen in verschiedenen Naturlandschaften",
+                    "Lerne über nachhaltige Praktiken zum Schutz der Ostsee"
+                ]
+            }
+        ];
+
+        let currentQuestion = 0;
+        let answers = [];
+
+        // DOM elements
+        const questionContainer = document.getElementById('question-container');
+        const questionText = document.getElementById('question-text');
+        const optionsContainer = document.getElementById('options-container');
+        const nextBtn = document.getElementById('next-btn');
+        const prevBtn = document.getElementById('prev-btn');
+        const progressText = document.getElementById('progress-text');
+        const quizElement = document.getElementById('quiz');
+        const resultElement = document.getElementById('result');
+        const resultTitle = document.getElementById('result-title');
+        const resultDescription = document.getElementById('result-description');
+        const resultTips = document.getElementById('result-tips');
+        const restartBtn = document.getElementById('restart-btn');
+        const wavePathProgress = document.getElementById('wave-path-progress');
+
+        // Update wave progress
+        function updateWaveProgress() {
+            // Calculate progress percentage
+            const progressPercentage = currentQuestion / (questions.length - 1);
+            
+            // Calculate stroke-dashoffset based on progress
+            const pathLength = wavePathProgress.getTotalLength();
+            const dashOffset = pathLength - (pathLength * progressPercentage);
+            
+            // Update the path
+            wavePathProgress.style.strokeDasharray = pathLength;
+            wavePathProgress.style.strokeDashoffset = dashOffset;
+        }
+
+        // Initialize quiz
+        function initQuiz() {
+            currentQuestion = 0;
+            answers = new Array(questions.length).fill(null);
+            showQuestion();
+            updateWaveProgress();
+            quizElement.classList.remove('hidden');
+            resultElement.classList.add('hidden');
+        }
+
+        // Show current question
+        function showQuestion() {
+            const question = questions[currentQuestion];
+            questionText.textContent = question.question;
+            optionsContainer.innerHTML = '';
+            
+            question.options.forEach((option, index) => {
+                const button = document.createElement('button');
+                button.className = `option-btn w-full text-left p-4 rounded-lg border ${answers[currentQuestion] === index ? 'bg-sky-100 border-sky-500' : 'bg-white border-gray-200'} hover:bg-sky-50`;
+                button.textContent = option;
+                
+                button.addEventListener('click', () => {
+                    selectOption(index);
+                });
+                
+                optionsContainer.appendChild(button);
+            });
+            
+            updateNavButtons();
+            updateProgressText();
+            updateWaveProgress();
+        }
+
+        // Select an option
+        function selectOption(index) {
+            answers[currentQuestion] = index;
+            showQuestion();
+        }
+
+        // Update navigation buttons
+        function updateNavButtons() {
+            if (currentQuestion > 0) {
+                prevBtn.classList.remove('hidden');
+            } else {
+                prevBtn.classList.add('hidden');
+            }
+            
+            if (currentQuestion === questions.length - 1) {
+                nextBtn.textContent = 'Ergebnis anzeigen';
+            } else {
+                nextBtn.textContent = 'Weiter';
+            }
+        }
+
+        // Update progress text
+        function updateProgressText() {
+            progressText.textContent = `Frage ${currentQuestion + 1} von ${questions.length}`;
+        }
+
+        // Calculate result
+        function calculateResult() {
+            const counts = [0, 0, 0, 0];
+            
+            answers.forEach(answer => {
+                if (answer !== null) {
+                    counts[answer]++;
+                }
+            });
+            
+            let maxIndex = 0;
+            for (let i = 1; i < counts.length; i++) {
+                if (counts[i] > counts[maxIndex]) {
+                    maxIndex = i;
+                }
+            }
+            
+            return results[maxIndex];
+        }
+
+        // Show result
+        function showResult() {
+            const result = calculateResult();
+            
+            resultTitle.textContent = result.title;
+            resultDescription.textContent = result.description;
+            
+            resultTips.innerHTML = '';
+            result.tips.forEach(tip => {
+                const li = document.createElement('li');
+                li.textContent = tip;
+                resultTips.appendChild(li);
+            });
+            
+            quizElement.classList.add('hidden');
+            resultElement.classList.remove('hidden');
+            
+            window.scrollTo(0, 0);
+        }
+
+        // Event listeners
+        nextBtn.addEventListener('click', () => {
+            if (answers[currentQuestion] === null) {
+                alert('Bitte wähle eine Option aus, bevor du fortfährst.');
+                return;
+            }
+            
+            if (currentQuestion < questions.length - 1) {
+                currentQuestion++;
+                showQuestion();
+            } else {
+                showResult();
+            }
+        });
+
+        prevBtn.addEventListener('click', () => {
+            if (currentQuestion > 0) {
+                currentQuestion--;
+                showQuestion();
+            }
+        });
+
+        restartBtn.addEventListener('click', initQuiz);
+
+        // Initialize the wave path length for animations
+        document.addEventListener('DOMContentLoaded', function() {
+            const pathLength = wavePathProgress.getTotalLength();
+            wavePathProgress.style.strokeDasharray = pathLength;
+            wavePathProgress.style.strokeDashoffset = pathLength;
+        });
+
+        // Start the quiz
+        initQuiz();
+    </script>
+</body>
+</html>
